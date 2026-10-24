@@ -46,6 +46,35 @@ import base64
 data = base64.b64encode((out / "favicon.png").read_bytes()).decode("ascii")
 (out / "favicon.svg").write_text(f'<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><image width="512" height="512" href="data:image/png;base64,{data}"/></svg>\n',encoding="utf-8")
 
+
+# Settings -> Other settings: remove only the highlighted "Project information" row
+import re
+settings_path = repo / "src" / "pages" / "SettingsPage" / "components" / "OtherSetting.tsx"
+settings = settings_path.read_text(encoding="utf-8")
+settings = settings.replace(
+    "import { BugIcon, ExternalLinkIcon, FileTextIcon, Trash2Icon } from 'lucide-react'",
+    "import { FileTextIcon, Trash2Icon } from 'lucide-react'", 1
+)
+settings = settings.replace(
+    "import { SimpleIconsGithub } from '@/components/icons/simpleIcons'\n", "", 1
+)
+handlers_pattern = r"\n  const handleOpenGitHub = async \(\) => \{.*?\n  \}\n\n  const handleOpenIssues = async \(\) => \{.*?\n  \}\n"
+settings, handler_count = re.subn(handlers_pattern, "", settings, count=1, flags=re.S)
+assert handler_count == 1, "Upstream project-link handlers changed"
+section_pattern = (
+    r'\n          <div className="flex items-center justify-between">'
+    r'\n            <div className="space-y-1">'
+    r'\n              <h4 className="text-sm font-medium leading-none">项目信息</h4>'
+    r'.*?\n          </div>(?=\n        </div>\n      </CardContent>)'
+)
+settings, section_count = re.subn(section_pattern, "", settings, count=1, flags=re.S)
+assert section_count == 1, "Upstream project info JSX changed"
+assert "项目信息" not in settings and "handleOpenGitHub" not in settings and "handleOpenIssues" not in settings
+assert "运行日志" in settings and "清理无效数据" in settings, "Other settings must stay"
+settings_path.write_text(settings, encoding="utf-8")
+
+print("Removed Settings > Project information row; all other settings kept.")
+
 print("Applied brand: Langli Live Assistant")
 print("Logo SHA256:", hashlib.sha256(src_logo.read_bytes()).hexdigest())
 print("Only display name, top bar image, window title, and icon assets changed.")
