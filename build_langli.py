@@ -3,7 +3,8 @@ import hashlib
 import json
 from pathlib import Path
 from shutil import copyfile
-from PIL import Image
+from PIL import Image, ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 root = Path(__file__).parent
 repo = root / "oba-live-tool"
