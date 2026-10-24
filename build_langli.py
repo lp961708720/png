@@ -22,7 +22,7 @@ header_path = repo / "src" / "components" / "common" / "Header.tsx"
 header = header_path.read_text(encoding="utf-8")
 assert "直播助手</h1>" in header and "<Package className" in header, "Header upstream structure changed"
 header = header.replace("import { Package } from 'lucide-react'\n", "", 1)
-header = header.replace('<Package className="h-6 w-6 text-primary" />', '<img src="/favicon.png" alt="朗丽" className="h-8 w-8 rounded-lg object-contain" />', 1)
+header = header.replace('<Package className="h-6 w-6 text-primary" />', '<img src="./favicon.png" alt="朗丽" className="h-8 w-8 rounded-lg object-contain" />', 1)
 header = header.replace(">直播助手</h1>", ">朗丽直播助手</h1>", 1)
 header_path.write_text(header, encoding="utf-8")
 
