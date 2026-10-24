@@ -1,0 +1,82 @@
+name: Build Langli Live Assistant for Windows
+on:
+  push:
+    branches: [langli-live-windows-build-20261024]
+  workflow_dispatch:
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout build assets
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Get source pinned to upstream commit
+        shell: pwsh
+        run: |
+          git clone https://github.com/qiutongxue/oba-live-tool.git oba-live-tool
+          if ($LASTEXITCODE -ne 0) { throw 'git clone failed' }
+          git -C oba-live-tool checkout 37a88bc97cf6e8e9ec298b14d737357f3ff33975
+          if ($LASTEXITCODE -ne 0) { throw 'git checkout failed' }
+      - name: Apply original brand
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check Pillow==11.3.0
+          if ($LASTEXITCODE -ne 0) { throw 'Pillow install failed' }
+          python build_langli.py
+          if ($LASTEXITCODE -ne 0) { throw 'brand patch failed' }
+      - name: Install project dependencies
+        working-directory: oba-live-tool
+        shell: pwsh
+        run: |
+          pnpm install --no-frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'pnpm install failed' }
+      - name: Build Windows NSIS installer
+        working-directory: oba-live-tool
+        shell: pwsh
+        run: |
+          pnpm build
+          if ($LASTEXITCODE -ne 0) { throw 'pnpm build failed' }
+      - name: Verify EXE signature and checksums
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem 'oba-live-tool/release' -Recurse -File -Filter '*.exe' | Where-Object { $_.Name -like '朗丽直播助手*' }
+          if (-not $exe) { throw 'No branded Windows installer produced' }
+          $report = @()
+          foreach ($f in $exe) {
+            $stream = [System.IO.File]::OpenRead($f.FullName)
+            $br = [System.IO.BinaryReader]::new($stream)
+            try {
+              if ($br.ReadUInt16() -ne 0x5A4D) { throw 'Invalid MZ exe header' }
+              $stream.Position = 0x3C
+              $peOffset = $br.ReadUInt32()
+              $stream.Position = $peOffset
+              if ($br.ReadUInt32() -ne 0x00004550) { throw 'Invalid PE header' }
+            } finally { $br.Dispose(); $stream.Dispose() }
+            $sha = (Get-FileHash -Algorithm SHA256 -LiteralPath $f.FullName).Hash
+            $report += "$sha  $($f.Name)"
+            Write-Host "Verified: $($f.Name) $($f.Length) bytes; SHA256 $sha"
+          }
+          $report | Set-Content -Path 'SHA256SUMS.txt' -Encoding utf8
+      - name: Upload Windows installation EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: Langli-Live-Assistant-Windows-x64
+          path: |
+            oba-live-tool/release/**/*.exe
+            SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
