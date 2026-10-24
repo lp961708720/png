@@ -46,6 +46,6 @@ import base64
 data = base64.b64encode((out / "favicon.png").read_bytes()).decode("ascii")
 (out / "favicon.svg").write_text(f'<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><image width="512" height="512" href="data:image/png;base64,{data}"/></svg>\n',encoding="utf-8")
 
-print("Applied brand: 朗丽直播助手")
+print("Applied brand: Langli Live Assistant")
 print("Logo SHA256:", hashlib.sha256(src_logo.read_bytes()).hexdigest())
 print("Only display name, top bar image, window title, and icon assets changed.")
