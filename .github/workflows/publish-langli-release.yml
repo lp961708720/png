@@ -1,0 +1,37 @@
+name: Publish Langli Windows Installer
+on:
+  push:
+    branches: [langli-live-windows-build-20261024]
+    paths: [.github/workflows/publish-langli-release.yml]
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  release-installer:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download already verified Windows build
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 40100467151 --repo lp961708720/png --name Langli-Live-Assistant-Windows-x64 --dir extracted
+          if ($LASTEXITCODE -ne 0) { throw "Failed to download verified build" }
+          $installer = Get-ChildItem -Path extracted -Recurse -File -Filter '*_windows_x64.exe' | Where-Object { $_.Name -like '*朗丽直播助手*' } | Select-Object -First 1
+          if (-not $installer) { throw "Branded Windows installer is missing" }
+          $out = 'LangliLiveAssistant_1.6.3_x64_Setup.exe'
+          Copy-Item -LiteralPath $installer.FullName -Destination $out
+          $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $out).Hash.ToLowerInvariant()
+          $expected = '1a24a5c2ee23eb2f5d34049835670aae75c86b288ff3c8ab27a2756bd6101c7b'
+          if ($actual -ne $expected) { throw "SHA256 mismatch, expected $expected got $actual" }
+          "$actual  $out" | Set-Content -Path SHA256SUMS.txt -Encoding ascii
+          Write-Host "Installer verified: $out $actual"
+      - name: Publish stable direct-download release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create langli-v1.6.3-ui-clean-20261024 './LangliLiveAssistant_1.6.3_x64_Setup.exe' './SHA256SUMS.txt' --repo lp961708720/png --title '朗丽直播助手 v1.6.3 (去掉项目信息)' --target a039265949d7ac33bc5a14978de8cd4935f6fa66 --notes 'Windows x64 安装包。保留上游直播功能，更新软件名称和朗丽图标，删除设置中的项目信息行。基于 qiutongxue/oba-live-tool (MIT License)。未进行 Windows GUI 人工点击测试。此安装包未签名。'
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub release publishing failed' }
